@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Controle - Máquinas de Ar-Condicionado</title>
+<style>
+  :root{font-family:Segoe UI,Roboto,Arial,sans-serif;color:#111}
+  body{margin:20px;background:#f4f6f8;color:#111}
+  h1{margin-bottom:20px}
+  table{border-collapse:collapse;width:100%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+  th,td{border:1px solid #ccc;padding:8px;text-align:left}
+  th{cursor:pointer;background:#eee}
+  tr:nth-child(even){background:#fafafa}
+  tr:hover{background:#f1f1f1}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
+  label{font-weight:600;font-size:14px}
+  input,select,textarea{padding:6px;width:100%;box-sizing:border-box}
+  button{padding:6px 12px;margin:2px;cursor:pointer;border:none;border-radius:4px}
+  .primary{background:#007bff;color:#fff}
+  .danger{background:#dc3545;color:#fff}
+  .ghost{background:#eee}
+  .small{font-size:12px;padding:3px 8px}
+  .top-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+  .top-bar>*{flex:1}
+
+  /* 🔹 Cards de resumo */
+  .cards {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+  }
+  .card {
+    flex: 1;
+    min-width: 180px;
+    background: #f9f9f9;
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    transition: transform .25s ease, box-shadow .25s ease;
+  }
+  .card:hover { 
+    transform: translateY(-4px) scale(1.03); 
+    box-shadow: 0 8px 20px rgba(0,0,0,.18); 
+  }
+  .card span { 
+    font-size: 30px; 
+    display:block; 
+    margin-top:6px; 
+    font-weight:800; 
+  }
+
+  /* Cores individuais com gradiente */
+  #cardTotal { background: linear-gradient(135deg,#1f6feb,#3b82f6); color:#fff; }
+  #cardFunc { background: linear-gradient(135deg,#d4f7d4,#9ae6b4); color:#064d06; }
+  #cardManut { background: linear-gradient(135deg,#fff3cd,#ffe58f); color:#856404; }
+  #cardAguard { background: linear-gradient(135deg,#f8d7da,#f5a6ac); color:#721c24; }
+
+  /* 🔹 Badges de status */
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    min-width: 90px;
+  }
+  .badge-funcionando { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+  .badge-em-manutencao { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+  .badge-aguardando { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+  /* 🔹 Coluna piscando */
+  .alarm {
+    animation: blink 1s infinite;
+  }
+  @keyframes blink {
+    0%,100%{background-color:#ffcccc;}
+    50%{background-color:#fff;}
+  }
+
+  /* 🔹 Estilos de impressão */
+  @media print {
+    body { background: #fff; margin: 0; }
+    .form-grid, .top-bar, form button, .editBtn, .delBtn, #printBtn, #cancelEdit { display:none !important; }
+    .card:hover { transform:none; box-shadow:none; }
+    table { box-shadow:none; }
+  }
+
+  /* 🔹 Responsividade e rolagem horizontal com sombra */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+  }
+  .table-wrapper::before,
+  .table-wrapper::after {
+    content: "";
+    position: absolute;
+    top:0;
+    bottom:0;
+    width: 20px;
+    pointer-events:none;
+  }
+  .table-wrapper::before {
+    left:0;
+    background: linear-gradient(to right, rgba(244,246,248,1), rgba(244,246,248,0));
+  }
+  .table-wrapper::after {
+    right:0;
+    background: linear-gradient(to left, rgba(244,246,248,1), rgba(244,246,248,0));
+  }
+
+  @media (max-width: 768px) {
+    body { margin: 10px; }
+    .form-grid { grid-template-columns: 1fr !important; }
+    .top-bar { flex-direction: column; }
+    button { width: 100%; margin-top: 5px; }
+  }
+</style>
+</head>
+<body>
+<h1>Controle - Máquinas de Ar-Condicionado</h1>
+
+<div class="cards">
+  <div class="card" id="cardTotal">Total <span>0</span></div>
+  <div class="card" id="cardFunc">Funcionando <span>0</span></div>
+  <div class="card" id="cardManut">Em manutenção <span>0</span></div>
+  <div class="card" id="cardAguard">Aguardando <span>0</span></div>
+</div>
+
+<div class="top-bar">
+  <input id="search" placeholder="Buscar por local ou modelo...">
+  <select id="filterStatus">
+    <option value="">-- Filtrar por status --</option>
+    <option>Funcionando</option>
+    <option>Em manutenção</option>
+    <option>Aguardando</option>
+  </select>
+  <button class="primary" id="printBtn" type="button">🖨️ Imprimir Relatório</button>
+</div>
+
+<form id="form">
+  <div class="form-grid">
+    <div class="col"><label>Local<input id="local" required></label></div>
+    <div class="col"><label>Evaporadoras<input id="evap" type="number"></label></div>
+    <div class="col"><label>Condensadoras<input id="cond" type="number"></label></div>
+    <div class="col"><label>BTU<input id="btu" type="number"></label></div>
+    <div class="col"><label>Modelo<input id="modelo"></label></div>
+    <div class="col"><label>Tempo de Uso<input id="tempo"></label></div>
+    <div class="col"><label>Status<select id="status">
+      <option>Funcionando</option>
+      <option>Em manutenção</option>
+      <option>Aguardando</option>
+    </select></label></div>
+    <div class="col"><label>Observação<textarea id="obs"></textarea></label></div>
+    <div class="col"><label>Último Técnico
+      <select id="tecnico">
+        <option value="">Selecione...</option>
+        <option>Emerson (JR)</option>
+        <option>Maria</option>
+        <option>João</option>
+        <option>Fernanda</option>
+      </select>
+    </label></div>
+    <div class="col"><label>Previsão de Retorno<input id="previsao" type="date"></label></div>
+  </div>
+  <button class="primary" type="submit">Adicionar</button>
+  <button class="ghost" type="button" id="cancelEdit" style="display:none">Cancelar edição</button>
+</form>
+
+<div class="table-wrapper">
+<table id="tabela">
+  <thead>
+    <tr>
+      <th>Local</th>
+      <th>Evaporadoras</th>
+      <th>Condensadoras</th>
+      <th>BTU</th>
+      <th>Modelo</th>
+      <th>Tempo de Uso</th>
+      <th>Status</th>
+      <th>Observação</th>
+      <th>Último Técnico</th>
+      <th>Previsão Retorno</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem('acData')||'[]');
+let editingIndex = null;
+const form = document.getElementById('form');
+const tbody = document.querySelector('#tabela tbody');
+const searchInput = document.getElementById('search');
+const filterStatus = document.getElementById('filterStatus');
+const cancelEditBtn = document.getElementById('cancelEdit');
+const localInput = document.getElementById('local');
+const evapInput = document.getElementById('evap');
+const condInput = document.getElementById('cond');
+const btuInput = document.getElementById('btu');
+const modeloInput = document.getElementById('modelo');
+const tempoInput = document.getElementById('tempo');
+const statusInput = document.getElementById('status');
+const obsInput = document.getElementById('obs');
+const previsaoInput = document.getElementById('previsao');
+const tecnicoInput = document.getElementById('tecnico');
+
+function saveData(){ localStorage.setItem('acData',JSON.stringify(data)); }
+
+function animateValue(el, start, end, duration) {
+  let startTime = null;
+  function animate(currentTime) {
+    if (!startTime) startTime = currentTime;
+    const progress = Math.min((currentTime - startTime) / duration, 1);
+    const value = Math.floor(progress * (end - start) + start);
+    el.textContent = value;
+    if (progress < 1) requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+}
+
+function renderTable(){
+  const q = (searchInput.value || '').toLowerCase();
+  const statusFilter = filterStatus.value || '';
+  let rows = data.slice();
+  if(statusFilter) rows = rows.filter(r => (r.status||'').toLowerCase() === statusFilter.toLowerCase());
+  if(q) rows = rows.filter(r => (r.local||'').toLowerCase().includes(q) || (r.modelo||'').toLowerCase().includes(q));
+  tbody.innerHTML='';
+  rows.forEach((row, idx)=>{
+    const tr = document.createElement('tr');
+    const dateText = row.previsao ? (new Date(row.previsao)).toLocaleDateString() : '';
+
+    let badgeClass = "badge";
+    if(row.status==="Funcionando") badgeClass+=" badge-funcionando";
+    if(row.status==="Em manutenção") badgeClass+=" badge-em-manutencao";
+    if(row.status==="Aguardando") badgeClass+=" badge-aguardando";
+
+    tr.innerHTML = `
+      <td>${escapeHtml(row.local||'')}</td>
+      <td style="text-align:center">${row.evaporadoras||0}</td>
+      <td style="text-align:center">${row.condensadoras||0}</td>
+      <td>${row.btu||''}</td>
+      <td>${escapeHtml(row.modelo||'')}</td>
+      <td>${escapeHtml(row.tempo||'')}</td>
+      <td><span class="${badgeClass}">${escapeHtml(row.status||'')}</span></td>
+      <td>${escapeHtml(row.observacao||'')}</td>
+      <td>${escapeHtml(row.tecnico||'')}</td>
+      <td class="previsao">${escapeHtml(dateText)}</td>
+      <td style="white-space:nowrap">
+        <button data-idx="${idx}" class="editBtn ghost small">✏️</button>
+        <button data-idx="${idx}" class="delBtn danger small">🗑️</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.editBtn').forEach(b=>b.addEventListener('click', e=>{ startEdit(Number(e.currentTarget.dataset.idx)); }));
+  tbody.querySelectorAll('.delBtn').forEach(b=>b.addEventListener('click', e=>{ deleteEntry(Number(e.currentTarget.dataset.idx)); }));
+
+  const total = data.length;
+  const func = data.filter(r=>r.status==="Funcionando").length;
+  const manut = data.filter(r=>r.status==="Em manutenção").length;
+  const aguard = data.filter(r=>r.status==="Aguardando").length;
+
+  animateValue(document.querySelector("#cardTotal span"), Number(document.querySelector("#cardTotal span").textContent), total, 800);
+  animateValue(document.querySelector("#cardFunc span"), Number(document.querySelector("#cardFunc span").textContent), func, 800);
+  animateValue(document.querySelector("#cardManut span"), Number(document.querySelector("#cardManut span").textContent), manut, 800);
+  animateValue(document.querySelector("#cardAguard span"), Number(document.querySelector("#cardAguard span").textContent), aguard, 800);
+
+  checkAlarms();
+}
+
+function startEdit(i){
+  editingIndex=i;
+  const row=data[i];
+  localInput.value=row.local||'';
+  evapInput.value=row.evaporadoras||'';
+  condInput.value=row.condensadoras||'';
+  btuInput.value=row.btu||'';
+  modeloInput.value=row.modelo||'';
+  tempoInput.value=row.tempo||'';
+  statusInput.value=row.status||'Funcionando';
+  obsInput.value=row.observacao||'';
+  previsaoInput.value=row.previsao||'';
+  tecnicoInput.value=row.tecnico||'';
+  cancelEditBtn.style.display='inline-block';
+}
+
+function deleteEntry(i){
+  if(confirm('Excluir este registro?')){
+    data.splice(i,1);
+    saveData();
+    renderTable();
+  }
+}
+
+function resetForm(){
+  form.reset();
+  editingIndex=null;
+  cancelEditBtn.style.display='none';
+}
+
+form.addEventListener('submit', e=>{
+  e.preventDefault();
+  const obj = {
+    local: localInput.value.trim(),
+    evaporadoras: Number(evapInput.value)||0,
+    condensadoras: Number(condInput.value)||0,
+    btu: Number(btuInput.value)||0,
+    modelo: modeloInput.value.trim(),
+    tempo: tempoInput.value.trim(),
+    tecnico: tecnicoInput.value.trim(),
+    status: statusInput.value,
+    observacao: obsInput.value.trim(),
+    previsao: previsaoInput.value||''
+  };
+  if(editingIndex===null) {
+    data.push(obj);
+  } else {
+    data[editingIndex]=obj;
+  }
+  saveData(); resetForm(); renderTable();
+  checkAlarms();
+});
+
+cancelEditBtn.addEventListener('click',()=>resetForm());
+searchInput.addEventListener('input',renderTable);
+filterStatus.addEventListener('change',renderTable);
+
+function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
+
+document.getElementById("printBtn").addEventListener("click", ()=>{ window.print(); });
+
+function checkAlarms(){
+  const today = new Date();
+  tbody.querySelectorAll('tr').forEach((tr, idx)=>{
+    const previsaoCell = tr.querySelector('td.previsao');
+    previsaoCell.classList.remove('alarm'); 
+    const row = data[idx];
+    if(!row.previsao) return;
+    const date = new Date(row.previsao);
+    const diffDays = Math.ceil((date - today)/(1000*60*60*24));
+    if(diffDays <= 3 && diffDays >= 0 && (row.status === "Aguardando" || row.status === "Em manutenção")){
+      previsaoCell.classList.add('alarm');
+      playBeep();
+    }
+  });
+}
+
+function playBeep(){
+  const context = new AudioContext();
+  const o = context.createOscillator();
+  const g = context.createGain();
+  o.type = "sine";
+  o.frequency.setValueAtTime(440, context.currentTime);
+  o.connect(g);
+  g.connect(context.destination);
+  o.start();
+  o.stop(context.currentTime + 0.3);
+}
+
+renderTable();
+</script>
+</body>
+</html>
